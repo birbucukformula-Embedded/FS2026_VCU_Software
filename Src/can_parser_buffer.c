@@ -14,9 +14,6 @@ static uint32_t s_buffer_idx = 0;
 
 /* Simülasyon durum değişkenleri */
 static uint32_t s_sim_timestamp_ms = 0;
-static float    s_sim_speed        = 0.0f;
-static float    s_sim_temp         = 35.0f;
-static uint8_t  s_sim_error        = 0;
 
 void CAN_SimulateData(TelemetryPacket_t* packet) {
     if (packet == NULL) return;
@@ -82,9 +79,6 @@ void CAN_Buffer_Init(void) {
     memset(s_sector_buffer, 0, sizeof(s_sector_buffer));
     s_buffer_idx = 0;
     s_sim_timestamp_ms = 0;
-    s_sim_speed = 0.0f;
-    s_sim_temp = 35.0f;
-    s_sim_error = 0;
 }
 
 bool CAN_Buffer_Push(const TelemetryPacket_t* packet) {

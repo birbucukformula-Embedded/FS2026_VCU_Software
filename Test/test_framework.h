@@ -55,8 +55,8 @@ static int test_total  = 0;
         printf(COLOR_GREEN "  [PASS] " COLOR_RESET "%s\n", description); \
     } else { \
         test_failed++; \
-        printf(COLOR_RED   "  [FAIL] " COLOR_RESET "%s  (Beklenen: %d, Gelen: %d, Satır: %d)\n", \
-               description, (int)(expected), (int)(actual), __LINE__); \
+        printf(COLOR_RED   "  [FAIL] " COLOR_RESET "%s  (Beklenen: %lld, Gelen: %lld, Satır: %d)\n", \
+               description, (long long)(expected), (long long)(actual), __LINE__); \
     } \
 } while(0)
 
@@ -68,8 +68,8 @@ static int test_total  = 0;
         printf(COLOR_GREEN "  [PASS] " COLOR_RESET "%s\n", description); \
     } else { \
         test_failed++; \
-        printf(COLOR_RED   "  [FAIL] " COLOR_RESET "%s  (Değer %d olmamalıydı, Satır: %d)\n", \
-               description, (int)(not_expected), __LINE__); \
+        printf(COLOR_RED   "  [FAIL] " COLOR_RESET "%s  (Değer %lld olmamalıydı, Satır: %d)\n", \
+               description, (long long)(not_expected), __LINE__); \
     } \
 } while(0)
 

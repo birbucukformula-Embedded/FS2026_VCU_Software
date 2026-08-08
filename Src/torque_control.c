@@ -41,6 +41,7 @@ static int16_t TC_ApplyRegen(const VCU_Inputs_t *inputs) {
 
 // 3. Güvenlik ve Limit Kontrolleri (Sıcaklık ve SOC)
 static int16_t TC_ApplySafetyLimits(int16_t rawTorque, const VCU_Inputs_t *inputs) {
+    (void)inputs; // Henüz kullanılmıyor, ileride eklenecek
     int16_t limitedTorque = rawTorque;
     
     // NOT: Bu blok BMS'ten sıcaklık ve SOC verisi gelmeye başladığında doldurulacaktır.
