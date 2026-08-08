@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "moving_average_filter.h"
 
 /*===========================================================================*
  * FS2026 VCU STATE MACHINE DEFINITIONS
@@ -67,6 +68,11 @@ typedef struct {
     bool           isAppsTimerActive;// %10 sapma sayacı çalışıyor mu?
     
     uint32_t       prechargeTimerMs; // Ön şarj zamanlayıcısı
+    
+    // Sensor Filters
+    MovingAverageFilter_t       apps1Filter;
+    MovingAverageFilter_t       apps2Filter;
+    MovingAverageFilter_t       brakeFilter;
     
     VCU_Inputs_t   inputs;
     VCU_Outputs_t  outputs;

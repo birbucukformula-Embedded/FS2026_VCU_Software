@@ -9,6 +9,10 @@
 #include "../Src/state_machine.c"
 #include "../Src/torque_control.c"
 #include "../Src/telemetry.c"
+#include "../Src/moving_average_filter.c"
+#include "../Src/low_pass_filter.c"
+#include "../Src/sd_file_system.c"
+#include "../Src/can_parser_buffer.c"
 
 /*===========================================================================*
  * FS2026 VCU UNIT TEST DOSYASI
@@ -325,6 +329,75 @@ static void test_telemetry(void) {
 }
 
 /*===========================================================================*
+ *  TEST 5: SENSÖR FİLTRELERİ
+ *===========================================================================*/
+static void test_sensor_filters(void) {
+    TEST_SUITE_BEGIN("Sensör Filtreleri (moving_average)");
+    
+    MovingAverageFilter_t filter;
+    MovingAverage_Init(&filter);
+    
+    TEST_ASSERT_EQ(filter.count, 0, "Filtre başlangıçta boş olmalı");
+    
+    // Sabit sinyal veriyoruz, ortalaması aynı kalmalı
+    float out1 = MovingAverage_Update(&filter, 50.0f);
+    TEST_ASSERT_EQ((int)out1, 50, "İlk örnek doğru alınmalı");
+    
+    MovingAverage_Update(&filter, 50.0f);
+    float out2 = MovingAverage_Update(&filter, 50.0f);
+    TEST_ASSERT_EQ((int)out2, 50, "Sabit örnekler ortalamayı değiştirmez");
+    
+    // Ani zıplama (Spike/Gürültü) veriyoruz
+    float out3 = MovingAverage_Update(&filter, 150.0f);
+    TEST_ASSERT((int)out3 < 100, "Ani zıplama sönümlenmeli (ortalama fırlamamalı)");
+}
+
+/*===========================================================================*
+ *  TEST 6: SD DATALOGGER
+ *===========================================================================*/
+static void test_sd_datalogger(void) {
+    TEST_SUITE_BEGIN("SD Datalogger ve Buffer (Mock)");
+    
+    bool init_ok = SD_Logger_Init();
+    TEST_ASSERT_EQ(init_ok, true, "SD Mock başlatıldı");
+    
+    bool open_ok = SD_Logger_OpenCSV("test_vcu_log.csv");
+    TEST_ASSERT_EQ(open_ok, true, "Test log dosyası açıldı");
+    
+    CAN_Buffer_Init();
+    
+    // Sahte veri paketi oluşturup 20 kez buffer'a atalım (512 byte'ı aşması için)
+    TelemetryPacket_t pkt;
+    memset(&pkt, 0, sizeof(pkt));
+    pkt.vehicleState = STATE_DRIVING;
+    pkt.appsPercent = 100;
+    
+    for (int i = 0; i < 20; i++) {
+        pkt.uptimeMs = i * 100;
+        bool push_ok = CAN_Buffer_Push(&pkt);
+        TEST_ASSERT_EQ(push_ok, true, "Buffer'a veri eklenebilmeli veya SD'ye yazılabilmeli");
+    }
+    
+    // Kalanları flush et
+    bool flush_ok = CAN_Buffer_Flush();
+    TEST_ASSERT_EQ(flush_ok, true, "Kalan buffer SD'ye flush edildi");
+    
+    bool close_ok = SD_Logger_Close();
+    TEST_ASSERT_EQ(close_ok, true, "SD dosya kapatıldı");
+    
+    // Dosya var mı ve boyutu 0'dan büyük mü kontrol et
+    FILE* fp = fopen("test_vcu_log.csv", "r");
+    TEST_ASSERT_NEQ(fp, NULL, "CSV dosyası fiziksel olarak oluşmalı");
+    if (fp) {
+        fseek(fp, 0, SEEK_END);
+        long size = ftell(fp);
+        TEST_ASSERT(size > 512, "Dosya boyutu en az bir sektör (>512 byte) olmalı");
+        fclose(fp);
+        remove("test_vcu_log.csv"); // Test sonrası temizlik
+    }
+}
+
+/*===========================================================================*
  *  ANA FONKSİYON
  *===========================================================================*/
 int main(void) {
@@ -339,6 +412,8 @@ int main(void) {
     test_safety_rules();
     test_torque_control();
     test_telemetry();
+    test_sensor_filters();
+    test_sd_datalogger();
     
     // Sonuç raporu
     TEST_REPORT();

@@ -167,6 +167,38 @@
 # └─────────────────────────────────────────────────────────────
 
 
+# ┌─────────────────────────────────────────────────────────────
+# │  Inc/moving_average_filter.h & Src/moving_average_filter.c  (Filtre)
+# ├─────────────────────────────────────────────────────────────
+# │
+# │   MA_FILTER_WINDOW_SIZE    — Pencere boyutu (varsayılan: 10)
+# │   MovingAverage_Init()     — Filtre tamponunu sıfırlar
+# │   MovingAverage_Update()   — Yeni veri girer, yumuşatılmış ortalamayı döndürür
+# │
+# └─────────────────────────────────────────────────────────────
+# 
+# ┌─────────────────────────────────────────────────────────────
+# │  Inc/can_parser_buffer.h & Src/can_parser_buffer.c  (RAM Tampon)
+# ├─────────────────────────────────────────────────────────────
+# │
+# │   CAN_SimulateData()       — Sanal Telemetri (TelemetryPacket_t) verisi üretir
+# │   CAN_FormatCSV()          — Telemetri paketini "Uptime,State,Fault..." CSV'ye çevirir
+# │   CAN_Buffer_Push()        — 512 bayt RAM tamponuna ekler, dolarsa SD_Logger_Write çağırır
+# │   CAN_Buffer_Flush()       — Kalan tampon verisini diskte zorla (sync) oluşturur
+# │
+# └─────────────────────────────────────────────────────────────
+# 
+# ┌─────────────────────────────────────────────────────────────
+# │  Inc/sd_file_system.h & Src/sd_file_system.c  (SD Mock)
+# ├─────────────────────────────────────────────────────────────
+# │
+# │   SD_Logger_Init()         — SD kart montaj (mock PC ortamında)
+# │   SD_Logger_OpenCSV()      — FATFS f_open (mock fopen)
+# │   SD_Logger_Write()        — Sektör tamponunu f_write ile diske yazar
+# │   SD_Logger_Sync()         — PC diskinde dosya kapatılmadan anlık kaydeder
+# │
+# └─────────────────────────────────────────────────────────────
+# 
 # ══════════════════════════════════════════════════════════════
 # HIZLI ERİŞİM: BİR ŞEYİ DEĞİŞTİRMEK İSTİYORSAN
 # ══════════════════════════════════════════════════════════════

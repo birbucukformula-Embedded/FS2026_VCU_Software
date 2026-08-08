@@ -14,14 +14,22 @@ FS2026_VCU_Software/
 │   ├── FS2026_CAN_Dictionary.h  ---> [ARACIN DİLİ] Arabadaki tüm cihazların birbiriyle nasıl 
 │   │                                 konuştuğunu, Hangi CAN ID'sinin ne işe yaradığını içerir.
 │   │
+│   ├── moving_average_filter.h  ---> [SENSÖR FİLTRESİ] Gürültülü sensör verilerini temizler.
+│   │
+│   ├── can_parser_buffer.h      ---> [SD KART BUFFER] Verileri diske yazmadan önce RAM'de biriktirir.
+│   │
 │   └── state_machine.h          ---> [DURUM KİTAPÇIĞI] Aracın hangi durumlarda (INIT, DRIVING vb.)
 │                                     olabileceğini listeleyen sözlüktür.
 │
 ├── Src/   (SOURCE Klasörü - Asıl Algoritmalar ve Düşünen Kodlar)
 │   │
-│   └── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI] Aracın kontağını çevirdiğiniz andan 
-│                                     itibaren FS kurallarını (EV 4.12 vb.) denetleyen, 
-│                                     Buzzer öttüren ve arabayı süren asıl yerdir.
+│   ├── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI] Aracın kontağını çevirdiğiniz andan 
+│   │                                 itibaren FS kurallarını (EV 4.12 vb.) denetleyen, 
+│   │                                 Buzzer öttüren ve arabayı süren asıl yerdir.
+│   │
+│   ├── moving_average_filter.c  ---> [FİLTRE KODLARI] Matematiksel hareketli ortalama algoritması.
+│   │
+│   └── can_parser_buffer.c      ---> [SD FORMATLAYICI] Telemetri paketlerini CSV formatına çevirir.
 │
 └── README.md                    ---> (Şu an okuduğunuz harita)
 ```
