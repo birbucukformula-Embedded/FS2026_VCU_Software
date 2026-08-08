@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "vehicle_config.h"
 #include "telemetry.h"
 
 #ifdef __cplusplus
@@ -40,7 +41,7 @@ extern "C" {
  *          hücreyi silip tekrar yazmasına (Wear-Out) sebep olur ve SPI hattını meşgul eder.
  *          Bu sebeple verileri 512 Bayta ulaşana dek RAM'de biriktirip tek seferde yazarız.
  */
-#define CAN_BUFFER_SECTOR_SIZE      (512U)
+#define CAN_BUFFER_SECTOR_SIZE      (CFG_SD_SECTOR_SIZE)
 
 /**
  * @brief  CSV Dosyası Başlık Satırı (Header)

@@ -14,6 +14,7 @@
 #define MOVING_AVERAGE_FILTER_H
 
 #include <stdint.h>
+#include "vehicle_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +24,7 @@ extern "C" {
  * @brief Pencere (window) boyutu: son kaç örneğin ortalaması alınacak.
  * @details README'de istenen "son 10 sensör verisi" kuralı buradan geliyor.
  */
-#define MA_FILTER_WINDOW_SIZE   (10U)
+#define MA_FILTER_WINDOW_SIZE   (CFG_MA_FILTER_WINDOW_SIZE)
 
 /**
  * @brief Hareketli ortalama filtresinin durumunu (state) tutan yapı.

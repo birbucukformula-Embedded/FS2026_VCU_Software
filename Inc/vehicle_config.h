@@ -125,4 +125,12 @@
 #define CFG_PRECHARGE_TIMEOUT_MS        2000  // Precharge işleminin maksimum süresi (ms). Geçerse HATA.
 #define CFG_PRECHARGE_SUCCESS_PERCENT   90    // İnverterin bataryaya göre şarj olma yüzdesi (FS EV 4.11 kuralı)
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  SENSÖR FİLTRELERİ & SD KART DATALOGGER AYARLARI
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+#define CFG_MA_FILTER_WINDOW_SIZE       10    // Hareketli ortalama filtresi için son kaç örneğin (pencere) ortalaması alınacak
+#define CFG_SD_SECTOR_SIZE              512   // SD kart fiziksel sektör yazma boyutu (Ömrü korumak için 512 baytta bir yazılır)
+
 #endif // VEHICLE_CONFIG_H
