@@ -64,6 +64,8 @@
 #define CFG_REGEN_MAX_PERCENT        20     // Maksimum regen frenleme gücü (%)
                                             // Motorun max torkunun %'si kadar
 
+#define CFG_REGEN_BRAKE_CUTOFF_VAL   230    // Sert hidrolik frende Regen'i kapatma eşiği (0-255 arası, ~%90)
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  BUZZER & RTD AYARLARI
@@ -112,6 +114,7 @@
 
 #define CFG_CAN_VCU_CONTROL_PERIOD   10     // VCU_Control mesaj periyodu (ms)
 #define CFG_CAN_VCU_STATUS_PERIOD    20     // VCU_Status mesaj periyodu (ms)
+#define CFG_CAN_TIMEOUT_MS           500    // CAN mesajı gelmezse sistemin FAULT'a geçeceği süre (ms) (FS T 11.9.4)
 
 #define CFG_TELEM_TX_PERIOD_MS       100    // Telemetri paketi gönderim periyodu (ms)
                                             // 100ms = Saniyede 10 paket (Yer istasyonunda akıcı grafik için yeterli)
@@ -123,8 +126,22 @@
 
 #define CFG_TS_MIN_VOLTAGE              60    // TS_ACTIVE olmak için gereken minimum Inverter voltajı
 #define CFG_PRECHARGE_TIMEOUT_MS        2000  // Precharge işleminin maksimum süresi (ms). Geçerse HATA.
-#define CFG_PRECHARGE_SUCCESS_PERCENT   90    // İnverterin bataryaya göre şarj olma yüzdesi (FS EV 4.11 kuralı)
+#define CFG_PRECHARGE_SUCCESS_PERCENT   95    // İnverterin bataryaya göre şarj olma yüzdesi (FS EV 5.7.1 kuralı)
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  ADC GÜVENLİK SINIRLARI (AÇIK/KISA DEVRE KORUMASI)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+#define CFG_ADC_MIN_VALID               100   // Kopuk kablo (Açık devre) sınırı (12-bit ADC)
+#define CFG_ADC_MAX_VALID               4000  // Kısa devre sınırı (12-bit ADC)
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  GÜÇ VE AKIM LİMİTLERİ (FS KURALLARI EV 2.2)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+#define CFG_MAX_POWER_W                 80000 // EV 2.2.1: Maksimum anlık güç (80 kW)
+#define CFG_POWER_DERATE_THRESHOLD_W    78000 // 78 kW'ı geçince torku kısmaya başla
+#define CFG_MAX_CURRENT_A               500   // EV 2.2.2: Maksimum anlık akım (500 Amper)
+#define CFG_CURRENT_DERATE_THRESHOLD_A  480   // 480 Amperi geçince torku kısmaya başla
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  SENSÖR FİLTRELERİ & SD KART DATALOGGER AYARLARI

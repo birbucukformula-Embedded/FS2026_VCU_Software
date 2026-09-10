@@ -27,21 +27,30 @@ typedef enum {
     FAULT_BRAKE_THROTTLE = 2,    // Sert fren + %25 gaz kuralı ihlali
     FAULT_BMS = 3,               // Batarya hatası
     FAULT_SDC_OPEN = 4,          // Güvenlik devresi koptu (E-Stop vb.)
-    FAULT_PRECHARGE_FAIL = 5     // Ön şarj işlemi zaman aşımına uğradı
+    FAULT_PRECHARGE_FAIL = 5,    // Ön şarj işlemi zaman aşımına uğradı
+    FAULT_SENSOR_OUT_OF_RANGE = 6, // ADC değeri izin verilen sınırların dışında (Kısa devre/Açık devre)
+    FAULT_CAN_TIMEOUT = 7,       // CAN mesajı (haberleşme) zaman aşımı
+    FAULT_IMD = 8                // İzolasyon Hatası (IMD GPIO okuması)
 } FaultCode_t;
 
 // Sensörlerden Gelecek Sanal Veriler (Hardware Abstraction için)
 // Koda her döngüde bu veriler beslenir, kod kararlarını bunlara göre alır.
 typedef struct {
     uint8_t  appsPercent;        // Hesaplanmış son Gaz yüzdesi (0-100%)
-    uint8_t  apps1Percent;       // Sensör 1 (Güvenlik için ham veri)
-    uint8_t  apps2Percent;       // Sensör 2 (Güvenlik için ham veri)
+    uint8_t  apps1Percent;       // Sensör 1 (Güvenlik için hesaplanmış)
+    uint8_t  apps2Percent;       // Sensör 2 (Güvenlik için hesaplanmış)
+    uint16_t apps1Raw;           // Sensör 1 ADC Ham Verisi (Kısa devre/Açık devre tespiti)
+    uint16_t apps2Raw;           // Sensör 2 ADC Ham Verisi (Kısa devre/Açık devre tespiti)
+    uint16_t brakeRaw;           // Fren Sensörü ADC Ham Verisi (Kısa devre/Açık devre tespiti)
     uint8_t  brakePressure;      // 0-255 (örn: Bar)
     uint16_t tsVoltage;          // Yüksek Gerilim (İnverter Voltajı)
     uint16_t bmsVoltage;         // Yüksek Gerilim (Batarya Voltajı)
+    uint16_t tsCurrent;          // Tractive System Çekilen Akım (Amper) - EV 2.2 kuralları için
+    uint16_t vehicleSpeedKmh;    // Tekerlek hızı veya motor devrinden hesaplanan hız (km/h)
     bool     startButtonPressed; // Start butonu anlık durumu
     bool     resetButtonPressed; // Hata sıfırlama butonu
     bool     sdcClosed;          // Güvenlik devresi kapalı (Güvenli) mi?
+    bool     imdFaultActive;     // İzolasyon cihazından (IMD) gelen dijital hata sinyali
     FaultCode_t externalFault;   // Dışarıdan gelen donanım hataları
 } VCU_Inputs_t;
 
@@ -49,12 +58,14 @@ typedef struct {
 typedef struct {
     VehicleState_t currentState; // Mevcut araç durumu
     bool           rtdBuzzerOn;  // Buzzer çalsın mı?
+    bool           brakeLightOn; // Fren lambası yansın mı? (FS Kuralı T 6.3.1)
     bool           inverterEnable; // Motor Inverteri aktif mi?
     int16_t        torqueCommand;  // İstenilen Tork
     FaultCode_t    activeFault;    // Şu anki aktif hata
     bool           contactorNegative;  // AIR- (Eksi Kontaktör)
     bool           contactorPrecharge; // Precharge Kontaktörü
     bool           contactorPositive;  // AIR+ (Artı Kontaktör)
+    bool           dashboardLedsOn;    // Gösterge LED'leri aktif mi? (Self-Test veya Hata)
 } VCU_Outputs_t;
 
 // Ana Durum Makinesi Yapısı (Global Objeler İçin)
@@ -68,6 +79,9 @@ typedef struct {
     bool           isAppsTimerActive;// %10 sapma sayacı çalışıyor mu?
     
     uint32_t       prechargeTimerMs; // Ön şarj zamanlayıcısı
+    uint32_t       lastCanMessageTimeMs; // CAN Haberleşme Zaman Aşımı Sayacı (Watchdog)
+    
+    uint32_t       bootTimerMs;      // İlk açılışta LED Self-Test süresi (1-3s)
     
     // Sensor Filters
     MovingAverageFilter_t       apps1Filter;

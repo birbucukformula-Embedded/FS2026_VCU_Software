@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include "vehicle_config.h"
 #include "telemetry.h"
+#include "state_machine.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +62,28 @@ extern "C" {
  * @param[out] packet Üretilen sanal verinin yazılacağı TelemetryPacket_t adresi.
  */
 void CAN_SimulateData(TelemetryPacket_t* packet);
+
+/**
+ * @brief  Gerçek CAN hattından (veya simülatörden) gelen veriyi ayrıştırır.
+ * @details CAN ID'ye göre gelen 8 baytlık veriyi (Payload) VCU_Inputs_t yapısına kaydeder.
+ *          Böylece State Machine hep en güncel verilerle çalışır.
+ * 
+ * @param[in]  canId  Gelen mesajın CAN ID'si (Örn: 0x200 BMS, 0x300 Inverter)
+ * @param[in]  data   Gelen 8 baytlık veri dizisi (Payload)
+ * @param[in]  dlc    Veri uzunluğu (Data Length Code, genellikle 8)
+ * @param[out] inputs VCU'nun ana girdi veri yapısı
+ */
+void CAN_Parse_Message(uint32_t canId, const uint8_t* data, uint8_t dlc, VCU_Inputs_t* inputs);
+
+/**
+ * @brief  Rear Node (Arka Düğüm) yerine geçerek sahte CAN verileri üretir.
+ * @details Test ortamında (test_all.c veya masaüstü testinde) kullanılmak üzere
+ *          BMS (0x200) ve Inverter (0x300) mesajlarını 8'er baytlık diziler halinde doldurur.
+ * 
+ * @param[out] bmsData 8 baytlık BMS veri dizisi
+ * @param[out] invData 8 baytlık Inverter veri dizisi
+ */
+void CAN_Generate_Mock_RearNode_Data(uint8_t* bmsData, uint8_t* invData);
 
 /* =========================================================================================
  * 2. CSV STRING FORMATLAMA FONKSİYONLARI

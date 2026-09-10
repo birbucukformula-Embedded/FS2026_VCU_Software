@@ -178,9 +178,11 @@
 # └─────────────────────────────────────────────────────────────
 # 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/can_parser_buffer.h & Src/can_parser_buffer.c  (RAM Tampon)
+# │  Inc/can_parser_buffer.h & Src/can_parser_buffer.c  (Veri Ayrıştırma & RAM Tampon)
 # ├─────────────────────────────────────────────────────────────
 # │
+# │   CAN_Parse_Message()      — Gelen 0x110, 0x200, 0x300 mesajlarını okur ve VCU_Inputs'a yazar. XOR Checksum kontrolü yapar.
+# │   CAN_Generate_Mock_RearNode_Data() — Test için sahte BMS ve Inverter verisi üretip XOR CRC8 ile paketler.
 # │   CAN_SimulateData()       — Sanal Telemetri (TelemetryPacket_t) verisi üretir
 # │   CAN_FormatCSV()          — Telemetri paketini "Uptime,State,Fault..." CSV'ye çevirir
 # │   CAN_Buffer_Push()        — 512 bayt RAM tamponuna ekler, dolarsa SD_Logger_Write çağırır

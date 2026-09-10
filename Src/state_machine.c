@@ -10,10 +10,32 @@ static FaultCode_t CheckForErrors(StateMachine_t *sm, uint32_t deltaTimeMs) {
     return sm->inputs.externalFault;
   }
 
-  // 2. Güvenlik Devresi (SDC) Koptuysa
+  // 2. CAN Haberleşme Koptuysa (Timeout) (FS Kuralı T 11.9.4)
+  if (sm->lastCanMessageTimeMs > CFG_CAN_TIMEOUT_MS) {
+    return FAULT_CAN_TIMEOUT;
+  }
+
+  // 3. İzolasyon Hatası (IMD GPIO)
+  if (sm->inputs.imdFaultActive) {
+    return FAULT_IMD;
+  }
+
+  // 3. Güvenlik Devresi (SDC) Koptuysa
   if (!sm->inputs.sdcClosed) {
     return FAULT_SDC_OPEN;
   }
+
+  // =========================================================================
+  // FS KURALI: T 11.9.2 (SENSÖR AÇIK/KISA DEVRE KORUMASI)
+  // ADC sensörlerinden gelen ham veri (0-4095) izin verilen sınırların dışına 
+  // (Örn: <100 veya >4000) çıkarsa kablo kopmuş veya kısa devre olmuştur.
+  // =========================================================================
+  if (sm->inputs.apps1Raw < CFG_ADC_MIN_VALID || sm->inputs.apps1Raw > CFG_ADC_MAX_VALID ||
+      sm->inputs.apps2Raw < CFG_ADC_MIN_VALID || sm->inputs.apps2Raw > CFG_ADC_MAX_VALID ||
+      sm->inputs.brakeRaw < CFG_ADC_MIN_VALID || sm->inputs.brakeRaw > CFG_ADC_MAX_VALID) {
+    return FAULT_SENSOR_OUT_OF_RANGE;
+  }
+
 
   // =========================================================================
   // FS KURALI: EV 5.7 (FREN VE GAZ ÇAKIŞMASI - APPS PLAUSIBILITY)
@@ -60,6 +82,7 @@ void SM_Init(StateMachine_t *sm) {
   sm->appsTimerMs = 0;
   sm->isAppsTimerActive = false;
   sm->prechargeTimerMs = 0;
+  sm->lastCanMessageTimeMs = 0;
 
   // Filtreleri Başlat
   MovingAverage_Init(&sm->apps1Filter);
@@ -69,19 +92,34 @@ void SM_Init(StateMachine_t *sm) {
   // Çıktıları güvenli değerlere çek
   sm->outputs.inverterEnable = false;
   sm->outputs.rtdBuzzerOn = false;
+  sm->outputs.brakeLightOn = false;
   sm->outputs.torqueCommand = 0;
   sm->outputs.activeFault = FAULT_NONE;
   sm->outputs.contactorNegative = false;
   sm->outputs.contactorPrecharge = false;
   sm->outputs.contactorPositive = false;
+  sm->outputs.dashboardLedsOn = true; // Açılışta 2 saniye yanacak
+  
+  sm->bootTimerMs = 0;
 }
 
 // Durum Makinesi Ana Döngüsü (Örn: Her 10ms'de bir çağrılır)
 void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
+  // Watchdog timer'ı artır
+  sm->lastCanMessageTimeMs += deltaTimeMs;
+
+  // Boot timer artır (Taşmayı önlemek için sınır koyalım)
+  if (sm->bootTimerMs < 10000) {
+      sm->bootTimerMs += deltaTimeMs;
+  }
+
   // 0. FİLTRELEME (Sensörlerden gelen gürültülü veriyi temizle)
   sm->inputs.apps1Percent = (uint8_t)MovingAverage_Update(&sm->apps1Filter, (float)sm->inputs.apps1Percent);
   sm->inputs.apps2Percent = (uint8_t)MovingAverage_Update(&sm->apps2Filter, (float)sm->inputs.apps2Percent);
   sm->inputs.brakePressure = (uint8_t)MovingAverage_Update(&sm->brakeFilter, (float)sm->inputs.brakePressure);
+
+  // FS KURALI: T 6.3.1 - Fren lambası fren basılıyken her zaman yanmalıdır
+  sm->outputs.brakeLightOn = (sm->inputs.brakePressure > 0);
 
   // 1. ÖNCE HATA KONTROLÜ (En yüksek öncelik)
   // deltaTimeMs'i hata kontrolüne de gönderiyoruz çünkü APPS için gerekli.
@@ -225,6 +263,17 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
       sm->currentState = STATE_LV_READY;
     }
     break;
+  }
+
+  // Dashboard (Sürücü Ekranı) LED'lerinin Yönetimi
+  // T 11.9.6 kuralı: Sistem ilk açıldığında LED'ler test için 1-3sn yanmalı.
+  // Veya sistemde aktif bir hata varsa (FAULT modundaysa) LED'ler uyar için yanık kalmalı.
+  if (sm->bootTimerMs < 2000) {
+      sm->outputs.dashboardLedsOn = true;
+  } else if (sm->outputs.activeFault != FAULT_NONE) {
+      sm->outputs.dashboardLedsOn = true;
+  } else {
+      sm->outputs.dashboardLedsOn = false;
   }
 
   // Son durumu çıktılara yansıt (Bu veriler CAN üzerinden HMI'a basılacak)

@@ -33,6 +33,9 @@ static StateMachine_t create_clean_sm(void) {
     sm.inputs.appsPercent = 0;
     sm.inputs.apps1Percent = 0;
     sm.inputs.apps2Percent = 0;
+    sm.inputs.apps1Raw = 2000;   // Sağlam ADC değeri
+    sm.inputs.apps2Raw = 2000;   // Sağlam ADC değeri
+    sm.inputs.brakeRaw = 2000;   // Sağlam ADC değeri
     sm.inputs.brakePressure = 0;
     sm.inputs.tsVoltage = 0;
     sm.inputs.bmsVoltage = 400; // Varsayılan batarya voltajı
@@ -40,6 +43,7 @@ static StateMachine_t create_clean_sm(void) {
     sm.inputs.resetButtonPressed = false;
     sm.inputs.sdcClosed = true;  // SDC kapalı (güvenli)
     sm.inputs.externalFault = FAULT_NONE;
+    sm.inputs.imdFaultActive = false;
     return sm;
 }
 
@@ -49,13 +53,25 @@ static StateMachine_t create_clean_sm(void) {
 static void test_state_machine_transitions(void) {
     TEST_SUITE_BEGIN("Durum Makinesi Geçişleri");
     
-    // --- Test 1.1: INIT → LV_READY ---
+    // --- Test 1.1: INIT → LV_READY ve LED Self-Test ---
     {
         StateMachine_t sm = create_clean_sm();
+        sm.inputs.tsVoltage = 400; // PRECHARGING aşamasını anında geçsin
         TEST_ASSERT_EQ(sm.currentState, STATE_INIT, "Başlangıç durumu STATE_INIT olmalı");
+        TEST_ASSERT_EQ(sm.outputs.dashboardLedsOn, true, "Başlangıçta (0 ms) LED'ler yanmalı");
         
-        SM_Update(&sm, 10);
-        TEST_ASSERT_EQ(sm.currentState, STATE_LV_READY, "INIT → LV_READY geçişi");
+        for (int i=0; i<100; i++) { // Toplam 1000ms
+            sm.lastCanMessageTimeMs = 0; // CAN timeout engelle
+            SM_Update(&sm, 10);
+        }
+        TEST_ASSERT_EQ(sm.currentState, STATE_TS_ACTIVE, "INIT → PRECHARGING → TS_ACTIVE geçişi");
+        TEST_ASSERT_EQ(sm.outputs.dashboardLedsOn, true, "1. Saniyede LED'ler hala yanıyor olmalı");
+
+        for (int i=0; i<150; i++) { // Toplam 1500ms (Toplam 2500ms eder)
+            sm.lastCanMessageTimeMs = 0; // CAN timeout engelle
+            SM_Update(&sm, 10);
+        }
+        TEST_ASSERT_EQ(sm.outputs.dashboardLedsOn, false, "2 Saniye sonra LED'ler kapanmalı");
     }
     
     // --- Test 1.2: LV_READY → PRECHARGING (SDC kapalıyken) ---
@@ -73,8 +89,7 @@ static void test_state_machine_transitions(void) {
         StateMachine_t sm = create_clean_sm();
         sm.currentState = STATE_PRECHARGING;
         sm.inputs.bmsVoltage = 400;
-        sm.inputs.tsVoltage = 370;  // %90 × 400 = 360'dan büyük
-        
+        sm.inputs.tsVoltage = 385;  // %95 × 400 = 380'den büyük olmalı
         SM_Update(&sm, 10);
         TEST_ASSERT_EQ(sm.currentState, STATE_TS_ACTIVE, "Voltaj %90'a ulaştı → TS_ACTIVE");
         TEST_ASSERT_EQ(sm.outputs.contactorPositive, true, "AIR+ kontaktör kapatıldı");
@@ -90,6 +105,7 @@ static void test_state_machine_transitions(void) {
         
         // 2100ms simüle et (2000ms timeout'u geçmeli)
         for (int i = 0; i < 210; i++) {
+            sm.lastCanMessageTimeMs = 0; // Test sırasında sahte CAN mesajı geliyormuş gibi köpeği besle
             SM_Update(&sm, 10);
         }
         TEST_ASSERT_EQ(sm.currentState, STATE_FAULT, "Precharge timeout → FAULT");
@@ -118,6 +134,7 @@ static void test_state_machine_transitions(void) {
         
         // 2100ms simüle et
         for (int i = 0; i < 210; i++) {
+            sm.lastCanMessageTimeMs = 0;
             SM_Update(&sm, 10);
         }
         TEST_ASSERT_EQ(sm.currentState, STATE_DRIVING, "2sn buzzer → DRIVING");
@@ -232,6 +249,7 @@ static void test_torque_control(void) {
     
     VCU_Inputs_t inputs;
     memset(&inputs, 0, sizeof(inputs));
+    inputs.vehicleSpeedKmh = 10; // Araç hareket halinde (Geri vites korumasına takılmamak için)
     
     // --- Test 3.1: Deadzone (Ölü Bölge) — Regen aktifse negatif tork beklenir ---
     inputs.appsPercent = 3;  // %3 < %5 (deadzone)
@@ -397,6 +415,63 @@ static void test_sd_datalogger(void) {
     }
 }
 
+void test_can_parsing() {
+    printf("\n═══════════════════════════════════════════════\n");
+    printf("  TEST SÜİTİ: CAN Veri Ayrıştırma (BMS & Inverter)\n");
+    printf("═══════════════════════════════════════════════\n");
+
+    VCU_Inputs_t inputs;
+    memset(&inputs, 0, sizeof(inputs));
+
+    uint8_t mockBmsData[8];
+    uint8_t mockInvData[8];
+
+    // Rear Node'dan sahte veriyi üret
+    CAN_Generate_Mock_RearNode_Data(mockBmsData, mockInvData);
+
+    // BMS Mesajını Parse Et
+    CAN_Parse_Message(0x200, mockBmsData, 8, &inputs);
+    TEST_ASSERT_EQ(inputs.bmsVoltage, 395, "BMS Voltajı doğru parse edildi (395 V)");
+    TEST_ASSERT_EQ(inputs.tsCurrent, 120, "BMS Akımı doğru parse edildi (120 A)");
+
+    // Inverter Mesajını Parse Et
+    CAN_Parse_Message(0x300, mockInvData, 8, &inputs);
+    TEST_ASSERT_EQ(inputs.tsVoltage, 395, "İnverter Voltajı doğru parse edildi (395 V)");
+    
+    // (2000 RPM * 60 * 157) / 400000 = 18840000 / 400000 = 47 km/h
+    TEST_ASSERT_EQ(inputs.vehicleSpeedKmh, 47, "Araç Hızı doğru parse ve hesap edildi (47 km/h)");
+
+    // Front Node (0x110) - Checksum Doğrulama Testi
+    uint8_t frontData[8] = {
+        0x0F, 0xFF, // APPS1 Raw = 4095
+        0x07, 0xFF, // APPS2 Raw = 2047
+        0x03, 0xFF, // Brake Raw = 1023
+        0x01,       // Start butonu basılı (0x01)
+        0x00        // Checksum
+    };
+    
+    // Checksum hesapla ve 7. byte'a yaz
+    uint8_t crc = 0;
+    for (int i=0; i<7; i++) crc ^= frontData[i];
+    frontData[7] = crc;
+
+    CAN_Parse_Message(0x110, frontData, 8, &inputs);
+    TEST_ASSERT_EQ(inputs.apps1Raw, 4095, "APPS1 Raw Parse");
+    TEST_ASSERT_EQ(inputs.apps2Raw, 2047, "APPS2 Raw Parse");
+    TEST_ASSERT_EQ(inputs.brakeRaw, 1023, "Brake Raw Parse");
+    TEST_ASSERT_EQ(inputs.startButtonPressed, true, "Start butonu parse");
+    TEST_ASSERT_EQ(inputs.apps1Percent, 100, "APPS1 Yüzdesi");
+    TEST_ASSERT_EQ(inputs.apps2Percent, 49, "APPS2 Yüzdesi");
+
+    // Checksum yanlış paketi gönderelim
+    uint16_t old_apps1 = inputs.apps1Raw;
+    frontData[7] = crc + 1; // Yanlış checksum
+    frontData[0] = 0x00;    // Değeri değiştirelim ki parse edilirse fark edelim
+    frontData[1] = 0x00;
+    CAN_Parse_Message(0x110, frontData, 8, &inputs);
+    TEST_ASSERT_EQ(inputs.apps1Raw, old_apps1, "Yanlış Checksum'lı mesaj reddedilmeli (Değer değişmemeli)");
+}
+
 /*===========================================================================*
  *  ANA FONKSİYON
  *===========================================================================*/
@@ -414,6 +489,7 @@ int main(void) {
     test_telemetry();
     test_sensor_filters();
     test_sd_datalogger();
+    test_can_parsing();
     
     // Sonuç raporu
     TEST_REPORT();

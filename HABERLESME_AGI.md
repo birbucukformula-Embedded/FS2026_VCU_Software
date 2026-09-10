@@ -18,13 +18,14 @@ Aşağıdaki şemalar, arabadaki cihazların birbirlerine HANGİ KABLO/PROTOKOL 
   [ START / RESET BUTONU ] -----(Dijital 1/0)-----------┤
                                                          ▼
                                             ╔══════════════════════╗
-  [ BUZZER (RTD Ses) ] <-------(12V PWM)---║                      ║
                                             ║      ANA BEYİN       ║
   [ AIR- Kontaktör ] <-----(Dijital OUT)---║        (VCU)         ║
   [ AIR+ Kontaktör ] <-----(Dijital OUT)---║   (state_machine.c)  ║
   [ Precharge Röle ] <-----(Dijital OUT)---║  (torque_control.c)  ║
                                             ║   (telemetry.c)     ║
                                             ╚══════════════════════╝
+                                                         │
+  [ BUZZER (RTD Ses) ] <-------(PWM)------- [ ARKA NODE (Rear) ] 
                                                          │
                                           ┌──────────────┼──────────────┐
                                           │ CAN BUS      │              │ UART
@@ -41,12 +42,13 @@ Aşağıdaki şemalar, arabadaki cihazların birbirlerine HANGİ KABLO/PROTOKOL 
 
 ## 2. CAN BUS VERİ AKIŞI (Mantıksal)
 
-### 🚗 VCU → İnverter (CAN ID: `0x100`, Her 10ms'de)
+### 🚗 VCU (Mid Node) → İnverter & Arka Node (CAN ID: `0x100`, Her 10ms'de)
 
 **Paket İçeriği (`CAN_VCU_Control_t`):**
 - **Tork Komutu:** Gaz pedalı yüzdesine, güvenlik limitlerine ve Regen durumuna göre hesaplanır.
 - **İnverter İzni:** STATE_DRIVING moduna geçmeden izin verilmez.
 - **Yön:** İleri/Geri
+- **Reserved Baytları (Byte 4 ve 5):** Byte 4 (En düşük bayt) Arka Node'a "Buzzer Çal" (1/0) komutunu gönderir. Byte 5 ise hata ayıklama (diagnostic) amacıyla mevcut "Durum Makinesi" (State Machine) durumunu tutar.
 
 ### 🚗 VCU → Ağdaki Herkese (CAN ID: `0x101`, Her 20ms'de)
 

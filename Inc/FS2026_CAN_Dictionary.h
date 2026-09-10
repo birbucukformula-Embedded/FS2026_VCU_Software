@@ -14,6 +14,7 @@
 #define CAN_ID_VCU_CONTROL   0x100  // VCU -> INV
 #define CAN_ID_VCU_STATUS    0x101  // VCU -> HMI, STM
 #define CAN_ID_VCU_FAULTS    0x102  // VCU -> All
+#define CAN_ID_FRONT_SENSORS 0x110  // FRONT -> VCU (APPS, Brake, Start)
 #define CAN_ID_BMS_VOLT_CURR 0x200  // BMS -> VCU
 #define CAN_ID_BMS_STATUS    0x201  // BMS -> VCU, HMI
 #define CAN_ID_INV_DYNAMICS  0x300  // INV -> VCU, HMI
@@ -24,6 +25,15 @@
  * CAN PAYLOAD STRUCTURES
  * (Mapped directly to 8-byte CAN data frames)
  *===========================================================================*/
+
+// ID 0x110: Front Sensors (Front Node to VCU)
+typedef struct __attribute__((packed)) {
+    uint8_t  apps1Percent;  // Byte 0: APPS 1 % (0-100)
+    uint8_t  apps2Percent;  // Byte 1: APPS 2 % (0-100)
+    uint8_t  brakePressure; // Byte 2: Brake pressure (0-255 bar)
+    uint8_t  startButton;   // Byte 3: Start Button Status (1=Pressed)
+    uint8_t  reserved[4];   // Byte 4-7: Not used
+} CAN_Front_Sensors_t;
 
 // ID 0x100: VCU_Control (VCU to Inverter)
 typedef struct __attribute__((packed)) {

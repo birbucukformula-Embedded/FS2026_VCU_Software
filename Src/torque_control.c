@@ -27,7 +27,11 @@ static int16_t TC_ApplyRegen(const VCU_Inputs_t *inputs) {
     // 1. Gaz pedalı ölü bölgede olmalı (Ayak gazdan çekilmiş)
     // 2. Araç hareket halinde olmalı (Şu an IMU/Hız verimiz yok, o yüzden sadece gaza bakıyoruz)
     // Not: Gerçekte araç hızı < 5 km/h ise regen yapılmaz, motor kilitlenmesin diye.
-    
+    // 3. Sert fren yapılmamalı (Tekerlek kilitlenmesini ve spin'i önlemek için)
+    if (inputs->brakePressure > CFG_REGEN_BRAKE_CUTOFF_VAL) {
+        return 0; // Çok sert fren yapılıyor, motor frenini iptal et sadece diskler tutsun
+    }
+
     if (inputs->appsPercent <= CFG_APPS_DEADZONE_PERCENT) {
         // Maksimum regen gücünü hesapla (Örn: 230 Nm'nin %20'si = 46 Nm frenleme)
         int16_t maxRegenTorque = (CFG_MOTOR_MAX_TORQUE_NM * CFG_REGEN_MAX_PERCENT) / 100;
@@ -44,20 +48,31 @@ static int16_t TC_ApplySafetyLimits(int16_t rawTorque, const VCU_Inputs_t *input
     (void)inputs; // Henüz kullanılmıyor, ileride eklenecek
     int16_t limitedTorque = rawTorque;
     
-    // NOT: Bu blok BMS'ten sıcaklık ve SOC verisi gelmeye başladığında doldurulacaktır.
-    // Şimdilik örnek bir kısıtlama gösterimi (Eğer veriler dışarıdan geliyorsa):
-    
-    /* 
-    // 1. Pil çok sıcaksa gücü yarıya indir (Derating)
-    if (inputs->bmsMaxCellTemp > CFG_BATTERY_TEMP_LIMIT) {
-        limitedTorque = limitedTorque / 2;
+    // 1. Akım Limiti (EV 2.2.2: 500A)
+    // Eğer anlık akım sınırın (Örn: 480A) üstüne çıktıysa torku agresifçe kıs
+    if (inputs->tsCurrent > CFG_CURRENT_DERATE_THRESHOLD_A) {
+        // Ne kadar aştıysak (Örn: 490 - 480 = 10A), torktan o kadar çok keselim
+        int16_t overCurrent = inputs->tsCurrent - CFG_CURRENT_DERATE_THRESHOLD_A;
+        int16_t reduction = overCurrent * 5; // Her 1A fazlalık için 5 Nm kıs
+        limitedTorque -= reduction;
     }
+
+    // 2. Güç Limiti (EV 2.2.1: 80kW)
+    // Güç (Watt) = Voltaj (V) * Akım (A)
+    uint32_t currentPowerW = (uint32_t)inputs->bmsVoltage * (uint32_t)inputs->tsCurrent;
     
-    // 2. Pil bitmek üzereyse aracı süründür (Limp Mode)
-    if (inputs->bmsSocPercent < CFG_BATTERY_SOC_CRITICAL) {
-        limitedTorque = (limitedTorque * 25) / 100; // Gücü %25'e düşür
+    // Eğer anlık güç sınırın (Örn: 78.000W) üstüne çıktıysa torku kıs
+    if (currentPowerW > CFG_POWER_DERATE_THRESHOLD_W) {
+        // Ne kadar aştıysak (Örn: 79000 - 78000 = 1000W), torktan kes
+        uint32_t overPower = currentPowerW - CFG_POWER_DERATE_THRESHOLD_W;
+        int16_t reduction = overPower / 200; // Her 200W fazlalık için 1 Nm kıs
+        limitedTorque -= reduction;
     }
-    */
+
+    // Kısma işlemi negatif torka sebep olmasın (Araç geri gitmesin)
+    if (limitedTorque < 0 && rawTorque > 0) {
+        limitedTorque = 0;
+    }
     
     return limitedTorque;
 }
@@ -77,9 +92,20 @@ int16_t TC_CalculateTorque(const VCU_Inputs_t *inputs) {
         finalTorque = TC_ApplyRegen(inputs);
     }
     
-    // 3. En son elde edilen torku güvenlik limitlerinden geçir (Sıcaklık/Pil kısıtlamaları)
+    // 3. Güvenlik ve Limit Kontrolleri (Güç, Akım, Pil Sıcaklığı)
     finalTorque = TC_ApplySafetyLimits(finalTorque, inputs);
     
+    // =========================================================================
+    // FS KURALI: EV 2.2.4 - Ters Dönüş (Geri Vites) Engeli
+    // Motor sürücüye giden komut aracı geriye hareket ettirmemelidir.
+    // Rejeneratif frenleme negatif tork üretir. Ancak araç dururken veya çok yavaşken
+    // (Örn: < 5 km/h) negatif tork uygulanırsa araç geri geri gitmeye başlar.
+    // Bunu engellemek için düşük hızlarda negatif tork (Regen) kapatılır.
+    // =========================================================================
+    if (finalTorque < 0 && inputs->vehicleSpeedKmh < 5) {
+        finalTorque = 0; // Araç duruyorsa geri gitmesini engelle
+    }
+
     // 4. Son Torku Inverter'e gönder
     return finalTorque;
 }
