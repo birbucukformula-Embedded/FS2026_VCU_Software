@@ -13,6 +13,7 @@
 #include "../Src/low_pass_filter.c"
 #include "../Src/sd_file_system.c"
 #include "../Src/can_parser_buffer.c"
+#include "../Src/error_logger.c"
 
 /*===========================================================================*
  * FS2026 VCU UNIT TEST DOSYASI

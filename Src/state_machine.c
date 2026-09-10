@@ -1,6 +1,7 @@
 #include "state_machine.h"
 #include "torque_control.h" // Tork hesaplama algoritmaları
 #include "vehicle_config.h" // Tüm ayarlanabilir değerler buradan gelir
+#include "error_logger.h"
 #include <stdlib.h>         // abs() fonksiyonu için
 
 // Yardımcı Fonksiyon: Hataları kontrol eder
@@ -121,11 +122,19 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // FS KURALI: T 6.3.1 - Fren lambası fren basılıyken her zaman yanmalıdır
   sm->outputs.brakeLightOn = (sm->inputs.brakePressure > 0);
 
+  // TODO: HAL_IWDG_Refresh(&hiwdg); // Donanımsal Watchdog (FS Kuralı: T 11.9.1)
+
   // 1. ÖNCE HATA KONTROLÜ (En yüksek öncelik)
   // deltaTimeMs'i hata kontrolüne de gönderiyoruz çünkü APPS için gerekli.
   FaultCode_t currentFault = CheckForErrors(sm, deltaTimeMs);
 
   if (currentFault != FAULT_NONE) {
+    if (sm->currentState != STATE_FAULT) {
+        // Yeni bir hataya düştük, bunu EEPROM/Flash'a kaydet (Kara Kutu - Madde 3)
+        // uptimeAtFaultMs yerine şimdilik test amaçlı uptime veya timestamp yazılabilir.
+        // Biz simgelemek adına basitçe sm->lastCanMessageTimeMs verebiliriz.
+        ErrorLogger_SaveFault(currentFault, 0); 
+    }
     sm->currentState = STATE_FAULT;
     sm->outputs.activeFault = currentFault;
   }
