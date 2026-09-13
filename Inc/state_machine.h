@@ -79,7 +79,9 @@ typedef struct {
     bool           isAppsTimerActive;// %10 sapma sayacı çalışıyor mu?
     
     uint32_t       prechargeTimerMs; // Ön şarj zamanlayıcısı
-    uint32_t       lastCanMessageTimeMs; // CAN Haberleşme Zaman Aşımı Sayacı (Watchdog)
+    uint32_t       frontNodeTimeoutMs; // Front Node (Sensörler) Timeout Sayacı
+    uint32_t       bmsTimeoutMs;       // BMS (Batarya) Timeout Sayacı
+    uint32_t       inverterTimeoutMs;  // Inverter Timeout Sayacı
     
     uint32_t       bootTimerMs;      // İlk açılışta LED Self-Test süresi (1-3s)
     
@@ -88,7 +90,9 @@ typedef struct {
     MovingAverageFilter_t       apps2Filter;
     MovingAverageFilter_t       brakeFilter;
     
-    VCU_Inputs_t   inputs;
+    VCU_Inputs_t   inputs;         // Ham CAN verileri (can_parser_buffer buraya yazar)
+    VCU_Inputs_t   filteredInputs;
+    bool           prevStartButtonPressed; // Edge detection için // Filtrelenmiş/Güvenli veriler (State Machine bunu kullanır)
     VCU_Outputs_t  outputs;
 } StateMachine_t;
 

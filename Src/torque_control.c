@@ -48,12 +48,11 @@ static int16_t TC_ApplySafetyLimits(int16_t rawTorque, const VCU_Inputs_t *input
     (void)inputs; // Henüz kullanılmıyor, ileride eklenecek
     int16_t limitedTorque = rawTorque;
     
-    // 1. Akım Limiti (EV 2.2.2: 500A)
     // Eğer anlık akım sınırın (Örn: 480A) üstüne çıktıysa torku agresifçe kıs
     if (inputs->tsCurrent > CFG_CURRENT_DERATE_THRESHOLD_A) {
         // Ne kadar aştıysak (Örn: 490 - 480 = 10A), torktan o kadar çok keselim
         int16_t overCurrent = inputs->tsCurrent - CFG_CURRENT_DERATE_THRESHOLD_A;
-        int16_t reduction = overCurrent * 5; // Her 1A fazlalık için 5 Nm kıs
+        int16_t reduction = overCurrent * CFG_CURRENT_DERATE_FACTOR; // Her 1A fazlalık için tork kıs
         limitedTorque -= reduction;
     }
 
@@ -65,7 +64,7 @@ static int16_t TC_ApplySafetyLimits(int16_t rawTorque, const VCU_Inputs_t *input
     if (currentPowerW > CFG_POWER_DERATE_THRESHOLD_W) {
         // Ne kadar aştıysak (Örn: 79000 - 78000 = 1000W), torktan kes
         uint32_t overPower = currentPowerW - CFG_POWER_DERATE_THRESHOLD_W;
-        int16_t reduction = overPower / 200; // Her 200W fazlalık için 1 Nm kıs
+        int16_t reduction = overPower / CFG_POWER_DERATE_FACTOR; // Her belli güç fazlalığı için tork kıs
         limitedTorque -= reduction;
     }
 

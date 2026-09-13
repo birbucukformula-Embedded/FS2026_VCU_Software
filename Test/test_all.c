@@ -443,34 +443,29 @@ void test_can_parsing() {
     TEST_ASSERT_EQ(inputs.vehicleSpeedKmh, 47, "Araç Hızı doğru parse ve hesap edildi (47 km/h)");
 
     // Front Node (0x110) - Checksum Doğrulama Testi
-    uint8_t frontData[8] = {
-        0x0F, 0xFF, // APPS1 Raw = 4095
-        0x07, 0xFF, // APPS2 Raw = 2047
-        0x03, 0xFF, // Brake Raw = 1023
-        0x01,       // Start butonu basılı (0x01)
-        0x00        // Checksum
-    };
+    CAN_Front_Sensors_t frontData = {0};
+    frontData.apps1Percent = 100;
+    frontData.apps2Percent = 49;
+    frontData.brakePressure = 50;
+    frontData.startButton = 1;
+    frontData.resetButton = 0;
     
-    // Checksum hesapla ve 7. byte'a yaz
-    uint8_t crc = 0;
-    for (int i=0; i<7; i++) crc ^= frontData[i];
-    frontData[7] = crc;
+    // Checksum hesapla
+    frontData.checksum = frontData.apps1Percent ^ frontData.apps2Percent ^ frontData.brakePressure ^ frontData.startButton ^ frontData.resetButton;
 
-    CAN_Parse_Message(0x110, frontData, 8, &inputs);
-    TEST_ASSERT_EQ(inputs.apps1Raw, 4095, "APPS1 Raw Parse");
-    TEST_ASSERT_EQ(inputs.apps2Raw, 2047, "APPS2 Raw Parse");
-    TEST_ASSERT_EQ(inputs.brakeRaw, 1023, "Brake Raw Parse");
-    TEST_ASSERT_EQ(inputs.startButtonPressed, true, "Start butonu parse");
+    CAN_Parse_Message(0x110, (uint8_t*)&frontData, 8, &inputs);
     TEST_ASSERT_EQ(inputs.apps1Percent, 100, "APPS1 Yüzdesi");
     TEST_ASSERT_EQ(inputs.apps2Percent, 49, "APPS2 Yüzdesi");
+    TEST_ASSERT_EQ(inputs.brakePressure, 50, "Brake Yüzdesi");
+    TEST_ASSERT_EQ(inputs.startButtonPressed, true, "Start butonu parse");
 
     // Checksum yanlış paketi gönderelim
-    uint16_t old_apps1 = inputs.apps1Raw;
-    frontData[7] = crc + 1; // Yanlış checksum
-    frontData[0] = 0x00;    // Değeri değiştirelim ki parse edilirse fark edelim
-    frontData[1] = 0x00;
-    CAN_Parse_Message(0x110, frontData, 8, &inputs);
-    TEST_ASSERT_EQ(inputs.apps1Raw, old_apps1, "Yanlış Checksum'lı mesaj reddedilmeli (Değer değişmemeli)");
+    uint16_t old_apps1 = inputs.apps1Percent;
+    frontData.checksum = frontData.checksum + 1; // Yanlış checksum
+    frontData.apps1Percent = 0;    // Değeri değiştirelim ki parse edilirse fark edelim
+
+    CAN_Parse_Message(0x110, (uint8_t*)&frontData, 8, &inputs);
+    TEST_ASSERT_EQ(inputs.apps1Percent, old_apps1, "Yanlış Checksum'lı mesaj reddedilmeli (Değer değişmemeli)");
 }
 
 /*===========================================================================*

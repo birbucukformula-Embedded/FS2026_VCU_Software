@@ -32,7 +32,9 @@ typedef struct __attribute__((packed)) {
     uint8_t  apps2Percent;  // Byte 1: APPS 2 % (0-100)
     uint8_t  brakePressure; // Byte 2: Brake pressure (0-255 bar)
     uint8_t  startButton;   // Byte 3: Start Button Status (1=Pressed)
-    uint8_t  reserved[4];   // Byte 4-7: Not used
+    uint8_t  resetButton;   // Byte 4: Reset Button Status (1=Pressed)
+    uint8_t  checksum;      // Byte 5: XOR checksum of Bytes 0-4
+    uint8_t  reserved[2];   // Byte 6-7: Not used
 } CAN_Front_Sensors_t;
 
 // ID 0x100: VCU_Control (VCU to Inverter)
@@ -45,12 +47,13 @@ typedef struct __attribute__((packed)) {
 
 // ID 0x101: VCU_Status (VCU to Network)
 typedef struct __attribute__((packed)) {
-    uint8_t stateMachine;   // Byte 0: 0=INIT, 1=LV_READY, 2=TS_ACTIVE, 3=RTD, 4=FAULT
+    uint8_t stateMachine;   // Byte 0: 0=INIT, 1=LV_READY, 2=TS_ACTIVE, 3=RTD, 4=DRIVE, 6=FAULT
     uint8_t appsPercent;    // Byte 1: APPS % (0-100)
     uint8_t brakePressure;  // Byte 2: Brake pressure (0-255 bar)
     int8_t  steeringAngle;  // Byte 3: SAS Angle (-128 to 127 deg)
     uint8_t sdcStatus;      // Byte 4: SDC Closed (1=OK, 0=Broken)
-    uint8_t reserved[3];    // Byte 5-7: Not used
+    uint8_t activeFault;    // Byte 5: Fault Code (0=None, 1=Plausibility, etc)
+    uint8_t reserved[2];    // Byte 6-7: Not used
 } CAN_VCU_Status_t;
 
 // ID 0x200: BMS_Volt_Curr (BMS to VCU)
@@ -74,7 +77,8 @@ typedef struct __attribute__((packed)) {
     int16_t  motorRPM;      // Byte 0-1: RPM
     uint8_t  motorTemp;     // Byte 2: Motor Temperature (C)
     uint8_t  inverterTemp;  // Byte 3: Inverter Temperature (C)
-    uint8_t  reserved[4];   // Byte 4-7
+    uint16_t tsVoltage;     // Byte 4-5: TS Voltage (Inverter input voltage)
+    uint8_t  reserved[2];   // Byte 6-7
 } CAN_INV_Dynamics_t;
 
 // ID 0x400: STM_IMU (Telemetry to VCU)

@@ -23,9 +23,9 @@ static void Send_VCU_Status(const StateMachine_t *sm) {
     CAN_VCU_Status_t msg = {0};
     
     msg.stateMachine = (uint8_t)sm->currentState;
-    msg.appsPercent = sm->inputs.appsPercent;
-    msg.brakePressure = sm->inputs.brakePressure;
-    msg.sdcStatus = sm->inputs.sdcClosed ? 1 : 0;
+    msg.appsPercent = sm->filteredInputs.appsPercent;
+    msg.brakePressure = sm->filteredInputs.brakePressure;
+    msg.sdcStatus = sm->filteredInputs.sdcClosed ? 1 : 0;
     // msg.steeringAngle şu anlık boş, sensör gelince eklenecek.
     
     CAN_Hardware_Transmit(CAN_ID_VCU_STATUS, (uint8_t*)&msg, sizeof(CAN_VCU_Status_t));

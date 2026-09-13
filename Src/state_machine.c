@@ -7,22 +7,25 @@
 // Yardımcı Fonksiyon: Hataları kontrol eder
 static FaultCode_t CheckForErrors(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // 1. Dış Hatalar (BMS Hatası vb.)
-  if (sm->inputs.externalFault != FAULT_NONE) {
-    return sm->inputs.externalFault;
+  if (sm->filteredInputs.externalFault != FAULT_NONE) {
+    return sm->filteredInputs.externalFault;
   }
 
-  // 2. CAN Haberleşme Koptuysa (Timeout) (FS Kuralı T 11.9.4)
-  if (sm->lastCanMessageTimeMs > CFG_CAN_TIMEOUT_MS) {
+  // 2. CAN Haberleşme Koptuysa (Multi-Node Timeout) (FS Kuralı T 11.9.4)
+  // Eger FrontNode, BMS veya Inverter'dan biri koparsa sistemi durdur.
+  if (sm->frontNodeTimeoutMs > CFG_CAN_TIMEOUT_MS || 
+      sm->bmsTimeoutMs > CFG_CAN_TIMEOUT_MS || 
+      sm->inverterTimeoutMs > CFG_CAN_TIMEOUT_MS) {
     return FAULT_CAN_TIMEOUT;
   }
 
   // 3. İzolasyon Hatası (IMD GPIO)
-  if (sm->inputs.imdFaultActive) {
+  if (sm->filteredInputs.imdFaultActive) {
     return FAULT_IMD;
   }
 
   // 3. Güvenlik Devresi (SDC) Koptuysa
-  if (!sm->inputs.sdcClosed) {
+  if (!sm->filteredInputs.sdcClosed) {
     return FAULT_SDC_OPEN;
   }
 
@@ -31,9 +34,9 @@ static FaultCode_t CheckForErrors(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // ADC sensörlerinden gelen ham veri (0-4095) izin verilen sınırların dışına 
   // (Örn: <100 veya >4000) çıkarsa kablo kopmuş veya kısa devre olmuştur.
   // =========================================================================
-  if (sm->inputs.apps1Raw < CFG_ADC_MIN_VALID || sm->inputs.apps1Raw > CFG_ADC_MAX_VALID ||
-      sm->inputs.apps2Raw < CFG_ADC_MIN_VALID || sm->inputs.apps2Raw > CFG_ADC_MAX_VALID ||
-      sm->inputs.brakeRaw < CFG_ADC_MIN_VALID || sm->inputs.brakeRaw > CFG_ADC_MAX_VALID) {
+  if (sm->inputs.apps1Percent == 255 ||
+      sm->inputs.apps2Percent == 255 ||
+      sm->inputs.brakePressure == 255) {
     return FAULT_SENSOR_OUT_OF_RANGE;
   }
 
@@ -43,8 +46,8 @@ static FaultCode_t CheckForErrors(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // Sürücü sert frene basarken (Örn: >30 Bar) aynı anda gaza basıyorsa (Örn:
   // >%25) Motora giden güç ANINDA kesilmelidir. (Hata durumuna düşürülür)
   // =========================================================================
-  if (sm->inputs.brakePressure > CFG_BRAKE_THROTTLE_BRAKE_MIN &&
-      sm->inputs.appsPercent > CFG_BRAKE_THROTTLE_GAS_MAX) {
+  if (sm->filteredInputs.brakePressure > CFG_BRAKE_THROTTLE_BRAKE_MIN &&
+      sm->filteredInputs.appsPercent > CFG_BRAKE_THROTTLE_GAS_MAX) {
     // Not: Kurala göre gaz pedalı %5'in altına düşene kadar bu hata KALICI
     // olmalıdır. Şimdilik sadece hatayı tetikleme şartını yazıyoruz.
     return FAULT_BRAKE_THROTTLE;
@@ -56,7 +59,7 @@ static FaultCode_t CheckForErrors(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // 100 milisaniyeden uzun sürerse motora giden güç anında KESİLMELİDİR.
   // =========================================================================
   int16_t appsDiff =
-      abs((int16_t)sm->inputs.apps1Percent - (int16_t)sm->inputs.apps2Percent);
+      abs((int16_t)sm->filteredInputs.apps1Percent - (int16_t)sm->filteredInputs.apps2Percent);
 
   if (appsDiff > CFG_APPS_PLAUSIBILITY_PERCENT) {
     sm->isAppsTimerActive = true;
@@ -83,7 +86,9 @@ void SM_Init(StateMachine_t *sm) {
   sm->appsTimerMs = 0;
   sm->isAppsTimerActive = false;
   sm->prechargeTimerMs = 0;
-  sm->lastCanMessageTimeMs = 0;
+  sm->frontNodeTimeoutMs = 0;
+  sm->bmsTimeoutMs = 0;
+  sm->inverterTimeoutMs = 0;
 
   // Filtreleri Başlat
   MovingAverage_Init(&sm->apps1Filter);
@@ -102,25 +107,30 @@ void SM_Init(StateMachine_t *sm) {
   sm->outputs.dashboardLedsOn = true; // Açılışta 2 saniye yanacak
   
   sm->bootTimerMs = 0;
+  sm->prevStartButtonPressed = false;
 }
 
 // Durum Makinesi Ana Döngüsü (Örn: Her 10ms'de bir çağrılır)
 void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // Watchdog timer'ı artır
-  sm->lastCanMessageTimeMs += deltaTimeMs;
+  sm->frontNodeTimeoutMs += deltaTimeMs;
+  sm->bmsTimeoutMs += deltaTimeMs;
+  sm->inverterTimeoutMs += deltaTimeMs;
 
   // Boot timer artır (Taşmayı önlemek için sınır koyalım)
-  if (sm->bootTimerMs < 10000) {
+  if (sm->bootTimerMs < CFG_BOOT_TIMER_MAX_MS) {
       sm->bootTimerMs += deltaTimeMs;
   }
 
   // 0. FİLTRELEME (Sensörlerden gelen gürültülü veriyi temizle)
-  sm->inputs.apps1Percent = (uint8_t)MovingAverage_Update(&sm->apps1Filter, (float)sm->inputs.apps1Percent);
-  sm->inputs.apps2Percent = (uint8_t)MovingAverage_Update(&sm->apps2Filter, (float)sm->inputs.apps2Percent);
-  sm->inputs.brakePressure = (uint8_t)MovingAverage_Update(&sm->brakeFilter, (float)sm->inputs.brakePressure);
+  sm->filteredInputs = sm->inputs; // Butonlar ve diğer verileri kopyala
+  sm->filteredInputs.apps1Percent = (uint8_t)MovingAverage_Update(&sm->apps1Filter, (float)sm->inputs.apps1Percent);
+  sm->filteredInputs.apps2Percent = (uint8_t)MovingAverage_Update(&sm->apps2Filter, (float)sm->inputs.apps2Percent);
+  sm->filteredInputs.brakePressure = (uint8_t)MovingAverage_Update(&sm->brakeFilter, (float)sm->inputs.brakePressure);
+  sm->filteredInputs.appsPercent = (sm->filteredInputs.apps1Percent + sm->filteredInputs.apps2Percent) / 2;
 
   // FS KURALI: T 6.3.1 - Fren lambası fren basılıyken her zaman yanmalıdır
-  sm->outputs.brakeLightOn = (sm->inputs.brakePressure > 0);
+  sm->outputs.brakeLightOn = (sm->filteredInputs.brakePressure > 0);
 
   // TODO: HAL_IWDG_Refresh(&hiwdg); // Donanımsal Watchdog (FS Kuralı: T 11.9.1)
 
@@ -147,6 +157,10 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // Önceki durumu kaydet (Değişimleri yakalamak için)
   sm->previousState = sm->currentState;
 
+  // Start butonu için yükselen kenar (Rising Edge) algılaması
+  bool startButtonEdge = (sm->filteredInputs.startButtonPressed && !sm->prevStartButtonPressed);
+  sm->prevStartButtonPressed = sm->filteredInputs.startButtonPressed;
+
   // 2. DURUM GEÇİŞLERİ (State Machine Mantığı)
   switch (sm->currentState) {
 
@@ -159,7 +173,7 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
     // Sadece Low Voltage (12V) sistemleri açık. Yüksek voltaj bekleniyor.
     // SDC (Güvenlik devresi) kapandığında TS Master anahtarı açılmış demektir.
     // Bu durumda Kontaktörleri kapatmak için PRECHARGE moduna geçiyoruz.
-    if (sm->inputs.sdcClosed == true) {
+    if (sm->filteredInputs.sdcClosed == true) {
       sm->prechargeTimerMs = 0; // Sayacı sıfırla
       sm->currentState = STATE_PRECHARGING;
     }
@@ -176,10 +190,10 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
     // Voltaj hedefi: İnverter voltajı (TS), Batarya voltajının (BMS) %90'ına
     // ulaşmalı
     uint16_t targetVoltage =
-        (sm->inputs.bmsVoltage * CFG_PRECHARGE_SUCCESS_PERCENT) / 100;
+        (sm->filteredInputs.bmsVoltage * CFG_PRECHARGE_SUCCESS_PERCENT) / 100;
 
-    if (sm->inputs.tsVoltage >= targetVoltage &&
-        sm->inputs.tsVoltage >= CFG_TS_MIN_VOLTAGE) {
+    if (sm->filteredInputs.tsVoltage >= targetVoltage &&
+        sm->filteredInputs.tsVoltage >= CFG_TS_MIN_VOLTAGE) {
       // Şarj başarılı! Artı kontaktörü kapat, precharge direncini devreden
       // çıkar
       sm->outputs.contactorPositive = true;
@@ -197,7 +211,7 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
 
     // SDC koptuysa (Örn: TS Master kapatıldıysa veya E-Stop basıldıysa)
     // LV_READY moduna güvenli bir şekilde geri dön.
-    if (sm->inputs.sdcClosed == false) {
+    if (sm->filteredInputs.sdcClosed == false) {
       sm->outputs.contactorNegative = false;
       sm->outputs.contactorPositive = false;
       sm->outputs.contactorPrecharge = false;
@@ -210,8 +224,8 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
     // 1) Sürücü frene belirli bir güçle basıyor olmalı (> %15)
     // 2) Start butonuna basılmış olmalı.
     // =========================================================================
-    if (sm->inputs.brakePressure > CFG_BRAKE_RTD_THRESHOLD &&
-        sm->inputs.startButtonPressed) {
+    if (sm->filteredInputs.brakePressure > CFG_BRAKE_RTD_THRESHOLD &&
+        startButtonEdge) {
       sm->currentState = STATE_RTD_TRANSITION;
 
       // Zamanlayıcıyı sıfırla ve Buzzer'ı öttür!
@@ -241,10 +255,10 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
 
     // Tork hesaplama (Torque Control modülünden gelir)
     // Bu fonksiyon; deadzone, regen ve sıcaklık limitlerini otomatik uygular.
-    sm->outputs.torqueCommand = TC_CalculateTorque(&sm->inputs);
+    sm->outputs.torqueCommand = TC_CalculateTorque(&sm->filteredInputs);
 
     // Sürücü tekrar Start butonuna basarsa aracı kapat (TS_ACTIVE'e dön)
-    if (sm->inputs.startButtonPressed) {
+    if (startButtonEdge) {
       sm->currentState = STATE_TS_ACTIVE;
     }
     break;
@@ -267,7 +281,7 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
     // CheckForErrors çağrısına deltaTimeMs=0 gönderiyoruz çünkü
     // sadece hatanın geçip geçmediğini (anlık olarak) soruyoruz, sayaç
     // arttırmak istemiyoruz.
-    if (CheckForErrors(sm, 0) == FAULT_NONE && sm->inputs.resetButtonPressed) {
+    if (CheckForErrors(sm, 0) == FAULT_NONE && sm->filteredInputs.resetButtonPressed) {
       sm->outputs.activeFault = FAULT_NONE;
       sm->currentState = STATE_LV_READY;
     }
@@ -277,7 +291,7 @@ void SM_Update(StateMachine_t *sm, uint32_t deltaTimeMs) {
   // Dashboard (Sürücü Ekranı) LED'lerinin Yönetimi
   // T 11.9.6 kuralı: Sistem ilk açıldığında LED'ler test için 1-3sn yanmalı.
   // Veya sistemde aktif bir hata varsa (FAULT modundaysa) LED'ler uyar için yanık kalmalı.
-  if (sm->bootTimerMs < 2000) {
+  if (sm->bootTimerMs < CFG_DASHBOARD_LED_TEST_MS) {
       sm->outputs.dashboardLedsOn = true;
   } else if (sm->outputs.activeFault != FAULT_NONE) {
       sm->outputs.dashboardLedsOn = true;

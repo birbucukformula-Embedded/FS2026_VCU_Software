@@ -140,14 +140,21 @@
  * ═══════════════════════════════════════════════════════════════════════════ */
 #define CFG_MAX_POWER_W                 80000 // EV 2.2.1: Maksimum anlık güç (80 kW)
 #define CFG_POWER_DERATE_THRESHOLD_W    78000 // 78 kW'ı geçince torku kısmaya başla
+#define CFG_POWER_DERATE_FACTOR         200   // Her kaç Watt fazlalık için 1 Nm kısılacak? (Örn: 200W)
 #define CFG_MAX_CURRENT_A               500   // EV 2.2.2: Maksimum anlık akım (500 Amper)
 #define CFG_CURRENT_DERATE_THRESHOLD_A  480   // 480 Amperi geçince torku kısmaya başla
+#define CFG_CURRENT_DERATE_FACTOR       5     // Her 1A fazlalık için kaç Nm kısılacak? (Örn: 5 Nm)
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  SENSÖR FİLTRELERİ & SD KART DATALOGGER AYARLARI
  * ═══════════════════════════════════════════════════════════════════════════ */
-
 #define CFG_MA_FILTER_WINDOW_SIZE       10    // Hareketli ortalama filtresi için son kaç örneğin (pencere) ortalaması alınacak
 #define CFG_SD_SECTOR_SIZE              512   // SD kart fiziksel sektör yazma boyutu (Ömrü korumak için 512 baytta bir yazılır)
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  ZAMANLAYICI (TIMER) LİMİTLERİ VE DASHBOARD AYARLARI
+ * ═══════════════════════════════════════════════════════════════════════════ */
+#define CFG_BOOT_TIMER_MAX_MS           10000 // Boot sayacının taşmasını engellemek için sınır
+#define CFG_DASHBOARD_LED_TEST_MS       2000  // T 11.9.6: Açılışta gösterge LED'lerinin yanık kalma süresi
 
 #endif // VEHICLE_CONFIG_H

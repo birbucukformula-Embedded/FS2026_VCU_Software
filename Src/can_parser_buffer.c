@@ -1,5 +1,6 @@
 #include "can_parser_buffer.h"
 #include "sd_file_system.h"
+#include "FS2026_CAN_Dictionary.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -48,35 +49,25 @@ void CAN_Parse_Message(uint32_t canId, const uint8_t* data, uint8_t dlc, VCU_Inp
 
     if (canId == 0x110) {
         // Front Node Mesajı (0x110) - Kritik Sensör Verileri
-        // Checksum (Byte 7) doğrulaması (T 11.9.2.d kuralı)
-        uint8_t calculated_crc = 0;
-        for (int i = 0; i < 7; i++) {
-            calculated_crc ^= data[i];
-        }
+        CAN_Front_Sensors_t* frontData = (CAN_Front_Sensors_t*)data;
         
+        // Checksum doğrulaması (Byte 5, T 11.9.2.d kuralı)
+        uint8_t calculated_crc = frontData->apps1Percent ^ 
+                                 frontData->apps2Percent ^ 
+                                 frontData->brakePressure ^ 
+                                 frontData->startButton ^ 
+                                 frontData->resetButton;
+                                 
         // Checksum yanlışsa paketi reddet (Zamanla Timeout hatasına düşer)
-        if (calculated_crc != data[7]) return;
+        if (calculated_crc != frontData->checksum) return;
 
-        // Byte 0-1: APPS1 Raw
-        // Byte 2-3: APPS2 Raw
-        // Byte 4-5: Brake Raw
-        // Byte 6: Butonlar (Bit 0: Start, Bit 1: Reset)
-        inputs->apps1Raw = (data[0] << 8) | data[1];
-        inputs->apps2Raw = (data[2] << 8) | data[3];
-        inputs->brakeRaw = (data[4] << 8) | data[5];
-        
-        inputs->startButtonPressed = (data[6] & 0x01) != 0;
-        inputs->resetButtonPressed = (data[6] & 0x02) != 0;
-
-        // Ham veriden yüzdelik hesaplama (Basit lineer oran)
-        // Normalde max/min kalibrasyon değerlerine göre yapılır
-        inputs->apps1Percent = (uint8_t)((inputs->apps1Raw * 100) / 4095);
-        inputs->apps2Percent = (uint8_t)((inputs->apps2Raw * 100) / 4095);
-        // Ortalama gaz pedalı pozisyonu
+        inputs->apps1Percent = frontData->apps1Percent;
+        inputs->apps2Percent = frontData->apps2Percent;
         inputs->appsPercent = (inputs->apps1Percent + inputs->apps2Percent) / 2;
         
-        // Fren basıncı (0-255 arası scale edelim)
-        inputs->brakePressure = (uint8_t)((inputs->brakeRaw * 255) / 4095);
+        inputs->brakePressure = frontData->brakePressure;
+        inputs->startButtonPressed = (frontData->startButton == 1);
+        inputs->resetButtonPressed = (frontData->resetButton == 1);
 
     } else if (canId == 0x200) {
         // BMS Mesajı (0x200)
@@ -89,17 +80,9 @@ void CAN_Parse_Message(uint32_t canId, const uint8_t* data, uint8_t dlc, VCU_Inp
         inputs->tsCurrent  = bmsAmps / 10;  // 0.1A -> A
 
     } else if (canId == 0x300) {
-        // Inverter Mesajı (0x300)
-        // Byte 0-1: TS Voltaj (1V çözünürlük)
-        // Byte 2-3: RPM
-        uint16_t tsVolts = (data[0] << 8) | data[1];
-        uint16_t rpm     = (data[2] << 8) | data[3];
-
-        inputs->tsVoltage = tsVolts;
-        
-        // RPM'den Hız (km/h) hesabı (Örnek tahmini formül, dişli oranına göre değişir)
-        // R=0.25m, Gear Ratio = 4:1 -> (RPM / 4) * 2 * pi * 0.25 * 60 / 1000
-        inputs->vehicleSpeedKmh = (rpm * 60 * 157) / 400000; 
+        CAN_INV_Dynamics_t* pInv = (CAN_INV_Dynamics_t*)data;
+        inputs->tsVoltage = pInv->tsVoltage;
+        inputs->vehicleSpeedKmh = (pInv->motorRPM * 60 * 157) / 400000; 
     }
 }
 
