@@ -6,7 +6,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/FS2026_CAN_Dictionary.h  (CAN Bus Sözlüğü)
+# │  FS2026_MidNode/Core/Inc/FS2026_CAN_Dictionary.h  (CAN Bus Sözlüğü)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   Satır 13-21 .... CAN Mesaj ID Numaraları
@@ -30,7 +30,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/state_machine.h  (Durum Makinesi Tanımları)
+# │  FS2026_MidNode/Core/Inc/state_machine.h  (Durum Makinesi Tanımları)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   Satır 12-19 .... VehicleState_t (Araç Durumları)
@@ -57,7 +57,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/can_manager.h & Src/can_manager.c  (CAN Mesaj Yöneticisi)
+# │  FS2026_MidNode/Core/Inc/can_manager.h & FS2026_MidNode/Core/Src/can_manager.c  (CAN Mesaj Yöneticisi)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   Satır 16-19 .... CAN_Manager_t (Zamanlayıcılar) (Header)
@@ -71,7 +71,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/torque_control.h & Src/torque_control.c  (Tork Hesaplamaları)
+# │  FS2026_MidNode/Core/Inc/torque_control.h & FS2026_MidNode/Core/Src/torque_control.c  (Tork Hesaplamaları)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   Satır 12-14 .... TC_CalculateTorque() Prototipleri (Header)
@@ -89,7 +89,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Src/state_machine.c  (Ana Beyin Algoritması)
+# │  FS2026_MidNode/Core/Src/state_machine.c  (Ana Beyin Algoritması)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   Satır 4-33  .... CheckForErrors()  — Hata kontrol fonksiyonu
@@ -133,7 +133,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/telemetry.h  (Telemetri TX Veri Paketi Tanımları)
+# │  FS2026_MidNode/Core/Inc/telemetry.h  (Telemetri TX Veri Paketi Tanımları)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   TelemetryPacket_t struct (21 Byte):
@@ -155,7 +155,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Src/telemetry.c  (Telemetri TX Modülü)
+# │  FS2026_MidNode/Core/Src/telemetry.c  (Telemetri TX Modülü)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   TELEM_Init()              — Frame başlığını sabitler (0xAA, 0x55)
@@ -168,7 +168,7 @@
 
 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/moving_average_filter.h & Src/moving_average_filter.c  (Filtre)
+# │  FS2026_MidNode/Core/Inc/moving_average_filter.h & FS2026_MidNode/Core/Src/moving_average_filter.c  (Filtre)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   MA_FILTER_WINDOW_SIZE    — Pencere boyutu (varsayılan: 10)
@@ -178,7 +178,7 @@
 # └─────────────────────────────────────────────────────────────
 # 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/can_parser_buffer.h & Src/can_parser_buffer.c  (Veri Ayrıştırma & RAM Tampon)
+# │  FS2026_MidNode/Core/Inc/can_parser_buffer.h & FS2026_MidNode/Core/Src/can_parser_buffer.c  (Veri Ayrıştırma & RAM Tampon)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   CAN_Parse_Message()      — Gelen 0x110, 0x200, 0x300 mesajlarını okur ve VCU_Inputs'a yazar. XOR Checksum kontrolü yapar.
@@ -191,7 +191,7 @@
 # └─────────────────────────────────────────────────────────────
 # 
 # ┌─────────────────────────────────────────────────────────────
-# │  Inc/sd_file_system.h & Src/sd_file_system.c  (SD Mock)
+# │  FS2026_MidNode/Core/Inc/sd_file_system.h & FS2026_MidNode/Core/Src/sd_file_system.c  (SD Mock)
 # ├─────────────────────────────────────────────────────────────
 # │
 # │   SD_Logger_Init()         — SD kart montaj (mock PC ortamında)
@@ -207,11 +207,11 @@
 ### FS Yarışma Kuralları (Kodun İçine Gömülü Kurallar)
 | Kural Numarası | Kural Adı | Ne Yapıyor? | Dosya Yolu | Satır |
 |----------------|-----------|------------|-----------|-------|
-| **EV 5.7** | Fren-Gaz Çakışması | Fren >30 Bar + Gaz >%25 ise tork kesilir | `Src/state_machine.c` | **Satır 19-27** |
-| **T 11.8.8** | APPS %10 Sapma | Gaz sensörleri %10'dan fazla saparsa (100ms) gücü kes | `Src/state_machine.c` | **Satır 29-47** |
-| **EV 4.11** | Precharge Sıralaması | AIR- → Precharge → %90 Voltaj → AIR+ | `Src/state_machine.c` | **Satır 109-131** |
-| **EV 4.12.1** | RTD Koşulları | Fren >%15 basılı + Start butonu → Buzzer | `Src/state_machine.c` | **Satır 146-158** |
-| **EV 4.12.3** | RTD Buzzer Süresi | 2 saniye kesintisiz ses → Sürüş moduna geç | `Src/state_machine.c` | **Satır 161-173** |
+| **EV 5.7** | Fren-Gaz Çakışması | Fren >30 Bar + Gaz >%25 ise tork kesilir | `FS2026_MidNode/Core/Src/state_machine.c` | **Satır 19-27** |
+| **T 11.8.8** | APPS %10 Sapma | Gaz sensörleri %10'dan fazla saparsa (100ms) gücü kes | `FS2026_MidNode/Core/Src/state_machine.c` | **Satır 29-47** |
+| **EV 4.11** | Precharge Sıralaması | AIR- → Precharge → %90 Voltaj → AIR+ | `FS2026_MidNode/Core/Src/state_machine.c` | **Satır 109-131** |
+| **EV 4.12.1** | RTD Koşulları | Fren >%15 basılı + Start butonu → Buzzer | `FS2026_MidNode/Core/Src/state_machine.c` | **Satır 146-158** |
+| **EV 4.12.3** | RTD Buzzer Süresi | 2 saniye kesintisiz ses → Sürüş moduna geç | `FS2026_MidNode/Core/Src/state_machine.c` | **Satır 161-173** |
 #
 #   Tork miktarını ayarla ............. vehicle_config.h → CFG_MOTOR_MAX_TORQUE_NM
 #   Buzzer süresini değiştir .......... vehicle_config.h → CFG_RTD_BUZZER_DURATION_MS

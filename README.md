@@ -10,32 +10,27 @@ Tüm haberleşme (CAN), güvenlik (SDC, IMD), sensör doğrulaması (APPS Plausi
 ```text
 FS2026_VCU_Software/
 │
-├── FS2026_MidNode/   (VCU / Ana Beyin Projesi)
-│   └── Core/Src/     Tüm karar algoritmalarının, CAN doğrulama testlerinin ve tork 
-│                     hesaplamalarının derlendiği ana STM32CubeIDE projesi.
+├── FS2026_MidNode/   (VCU / Ana Beyin Projesi - SINGLE SOURCE OF TRUTH)
+│   ├── Core/Inc/
+│   │   ├── FS2026_CAN_Dictionary.h  ---> [ARACIN DİLİ] Tüm cihazların birbiriyle nasıl konuştuğunu içerir.
+│   │   ├── vehicle_config.h         ---> [AYARLAR] Tüm eşik değerler, limitler ve konfigürasyon.
+│   │   └── state_machine.h          ---> [DURUM KİTAPÇIĞI] Aracın hangi durumlarda olabileceği.
+│   └── Core/Src/     
+│       ├── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI] Tüm güvenlik kural motoru.
+│       └── torque_control.c         ---> [TORK KONTROL / REGEN] İnvertere giden gücün hesabı.
 │
 ├── FS2026_FrontNode/ (Ön Sensör Beyni)
-│   └── Core/Src/     Gaz, Fren ve Start butonu verilerini okuyup XOR Checksum'ı ile 
-│                     VCU'ya ileten STM32CubeIDE projesi.
+│   └── Core/Src/     Gaz, Fren ve Start butonu verilerini okuyup XOR Checksum'ı ile VCU'ya iletir.
 │
-├── FS2026_RearNode/  (Arka Sistem / İnverter Simülasyon Beyni)
-│   └── Core/Src/     Batarya ve İnverter mesajlarını üreten, hata durumunda torku 
-│                     ve voltajı düşüren, pompaları açan STM32CubeIDE projesi.
-│
-├── Inc/              (Paylaşılan Ortak Kütüphaneler - Tanımlamalar)
-│   ├── FS2026_CAN_Dictionary.h  ---> [ARACIN DİLİ] Tüm cihazların birbiriyle nasıl konuştuğunu içerir.
-│   └── vehicle_config.h         ---> [AYARLAR] Tüm eşik değerler, limitler ve konfigürasyon.
-│
-└── Src/              (Paylaşılan Ortak Kütüphaneler - Algoritmalar)
-    ├── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI]
-    └── torque_control.c         ---> [TORK KONTROL / REGEN]
+└── FS2026_RearNode/  (Arka Sistem / İnverter Simülasyon Beyni)
+    └── Core/Src/     Batarya ve İnverter mesajlarını üreten, pompaları/fanları açan beyin.
 ```
 
 ## 🔍 KOD OKUMA REHBERİ (Yeni Başlayanlar İçin)
 
 Takıma yeni katılan bir mühendisseniz, kodların içinde devasa bloklar halinde **FS KURALLARI** yorum satırları göreceksiniz. Biz kod yazarken yarışma kitapçığındaki kuralları doğrudan kodun içine gömdük.
 
-Örneğin `Src/state_machine.c` dosyasını açarsanız, şöyle bloklar göreceksiniz:
+Örneğin `FS2026_MidNode/Core/Src/state_machine.c` dosyasını açarsanız, şöyle bloklar göreceksiniz:
 
 ```c
 // =========================================================================
