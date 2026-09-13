@@ -1,0 +1,19 @@
+# STM32CubeIDE / Eclipse Build Folders
+Debug/
+Release/
+
+# Object and output files
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# IDE Specific
+.settings/
+.cache/
+
+# OS specific
+.DS_Store
+Thumbs.db

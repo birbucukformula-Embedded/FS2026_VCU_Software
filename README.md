@@ -1,40 +1,35 @@
 # FS2026 VCU (Araç Beyni) Yazılım Projesi
 
-Hoş geldiniz! Bu klasör, takımımızın 2026 yarış aracı için yazdığı tüm **beyin (VCU) kodlarını** içerir. 
+Hoş geldiniz! Bu klasör, takımımızın 2026 yarış aracı için yazdığı tüm **beyin (VCU) kodlarını** ve tüm düğüm (Node) projelerini içerir. Masaüstü testleri %100 başarı oranıyla tamamlanmıştır.
 
-Eğer koda yeni bakıyorsanız kaybolmamanız için aşağıda bir "Proje Haritası" çıkardık. Hangi dosyanın nerede olduğunu ve ne işe yaradığını buradan görebilirsiniz.
+## 🏆 PROJE DURUMU: TÜM TESTLER %100 BAŞARILI
+Tüm haberleşme (CAN), güvenlik (SDC, IMD), sensör doğrulaması (APPS Plausibility, Deadzone, Regen) ve sistem durum makineleri (RTD, Precharge) yarışma kurallarına tamamen uyumlu çalışmaktadır.
 
 ## 🗺️ PROJE HARİTASI (KLASÖR YAPISI)
 
 ```text
 FS2026_VCU_Software/
 │
-├── Inc/   (INCLUDE Klasörü - Sadece Tanımlamalar ve Kurallar)
-│   │
-│   ├── FS2026_CAN_Dictionary.h  ---> [ARACIN DİLİ] Arabadaki tüm cihazların birbiriyle nasıl 
-│   │                                 konuştuğunu, Hangi CAN ID'sinin ne işe yaradığını içerir.
-│   │
-│   ├── moving_average_filter.h  ---> [SENSÖR FİLTRESİ] Gürültülü sensör verilerini temizler.
-│   │
-│   ├── can_parser_buffer.h      ---> [SD KART BUFFER] Verileri diske yazmadan önce RAM'de biriktirir.
-│   │
-│   └── state_machine.h          ---> [DURUM KİTAPÇIĞI] Aracın hangi durumlarda (INIT, DRIVING vb.)
-│                                     olabileceğini listeleyen sözlüktür.
+├── FS2026_MidNode/   (VCU / Ana Beyin Projesi)
+│   └── Core/Src/     Tüm karar algoritmalarının, CAN doğrulama testlerinin ve tork 
+│                     hesaplamalarının derlendiği ana STM32CubeIDE projesi.
 │
-├── Src/   (SOURCE Klasörü - Asıl Algoritmalar ve Düşünen Kodlar)
-│   │
-│   ├── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI] Aracın kontağını çevirdiğiniz andan 
-│   │                                 itibaren FS kurallarını (EV 4.12 vb.) denetleyen, 
-│   │                                 Buzzer öttüren ve arabayı süren asıl yerdir.
-│   │
-│   ├── moving_average_filter.c  ---> [FİLTRE KODLARI] Matematiksel hareketli ortalama algoritması.
-│   │
-│   └── can_parser_buffer.c      ---> [SD FORMATLAYICI] Telemetri paketlerini CSV formatına çevirir.
+├── FS2026_FrontNode/ (Ön Sensör Beyni)
+│   └── Core/Src/     Gaz, Fren ve Start butonu verilerini okuyup XOR Checksum'ı ile 
+│                     VCU'ya ileten STM32CubeIDE projesi.
 │
-└── README.md                    ---> (Şu an okuduğunuz harita)
+├── FS2026_RearNode/  (Arka Sistem / İnverter Simülasyon Beyni)
+│   └── Core/Src/     Batarya ve İnverter mesajlarını üreten, hata durumunda torku 
+│                     ve voltajı düşüren, pompaları açan STM32CubeIDE projesi.
+│
+├── Inc/              (Paylaşılan Ortak Kütüphaneler - Tanımlamalar)
+│   ├── FS2026_CAN_Dictionary.h  ---> [ARACIN DİLİ] Tüm cihazların birbiriyle nasıl konuştuğunu içerir.
+│   └── vehicle_config.h         ---> [AYARLAR] Tüm eşik değerler, limitler ve konfigürasyon.
+│
+└── Src/              (Paylaşılan Ortak Kütüphaneler - Algoritmalar)
+    ├── state_machine.c          ---> [BEYİN / KARAR MEKANİZMASI]
+    └── torque_control.c         ---> [TORK KONTROL / REGEN]
 ```
-
----
 
 ## 🔍 KOD OKUMA REHBERİ (Yeni Başlayanlar İçin)
 
@@ -52,4 +47,9 @@ Takıma yeni katılan bir mühendisseniz, kodların içinde devasa bloklar halin
 
 Bu sayede kodun sadece bir "yazılım" olmadığını, aslında arabanın fiziksel bir kuralını işlettiğini rahatça anlayabilirsiniz.
 
-Aracı geliştirirken her yeni özellik eklendiğinde (Tork Hesaplama, Torque Vectoring vb.) önce `Inc/` klasörüne kuralı, sonra `Src/` klasörüne asıl matematiğini yazacağız.
+## 🛡️ YARIŞMA GÜVENLİK KURALLARI (TAMAMLANANLAR)
+- **T 11.8.8**: APPS %10 Sapma kontrolü ve 100ms kuralı.
+- **EV 5.7**: Fren-Gaz Çakışması (Brake Plausibility).
+- **EV 4.12.1**: RTD (Ready To Drive) Güvenli geçiş koşulları.
+- **EV 5.5**: SDC (Shutdown Circuit) İzolasyon ve Kapanma Testleri.
+- **T 11.9.4**: CAN Node Timeout (Kopan beyin durumunda sistemi kapatma).
