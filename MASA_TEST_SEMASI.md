@@ -1,3 +1,6 @@
+# (TAMAMLANDI) - ARŞİV BELGESİ
+Bu belge, projenin ilk aşamasında masaüstü simülasyonları için kullanılmış olup, testler başarıyla bittiği için artık sadece referans/arşiv amacıyla tutulmaktadır.
+
 # FS2026 — Aşırı Ayrıntılı 3-Node Donanım Bağlantı Şeması
 
 > **Kaynak:** [sensor_listesi.csv](file:///home/necdet/1.5/sensorler/sensor_listesi.csv) dosyasından sadece **"Zorunlu"** işaretli sensörler alınmıştır.  
